@@ -1,0 +1,53 @@
+---
+title: "Stats 101A - Final Project Training Data Set"
+author: "Hao Ma"
+date: "Winter 2019"
+output: pdf_document
+---
+
+```{r echo = FALSE}
+train <- read.csv("HTrainW19Final.csv")
+
+train$Age1 <- 2019 - train$YearBuilt
+train$Age2 <- 2019 - train$YearRemodAdd
+
+train$TotalBsmtSF[which(is.na(train$TotalBsmtSF))] <- median(na.omit(train$TotalBsmtSF[which(train$TotalBsmtSF != 0)]))
+
+N <- as.integer(train$Neighborhood)
+for(i in 1:nrow(train)){
+   if(N[i] %in% c(1,5,6,7,9,12,13,17,20,21)){
+     train$Ngroup[i] <- "Group 1"
+   }else if(N[i] %in% c(2,3,11,15)){
+     train$Ngroup[i] <- "Group 2"
+   }else if(N[i] %in% c(4,8,10,18,19,23)){
+     train$Ngroup[i] <- "Group 3"
+   }else{
+     train$Ngroup[i] <- "Group 4"
+   }
+}
+
+train$Ngroup <- as.factor(train$Ngroup)
+
+train$GarageCars <- as.factor(train$GarageCars)
+train$Fireplaces <- as.factor(train$Fireplaces)
+train$FullBath <- as.factor(train$FullBath)
+train$BedroomAbvGr <- as.factor(train$BedroomAbvGr)
+
+train$MasVnrArea[which(is.na(train$MasVnrArea))] <- 
+  median(na.omit(train$MasVnrArea[which(train$MasVnrArea != 0)])) 
+med.mas.vnr <- median(train$MasVnrArea[which(train$MasVnrArea != 0)])
+for(i in 1:nrow(train)){
+  if(train$MasVnrArea[i] == 0) {train$MasVnr[i] <- "No MasVnr"} 
+  if(train$MasVnrArea[i] != 0 & train$MasVnrArea[i] <= med.mas.vnr) {train$MasVnr[i] <- "Small MasVnr"} 
+  if(train$MasVnrArea[i] != 0 & train$MasVnrArea[i] > med.mas.vnr) {train$MasVnr[i] <- "Large MasVnr"}
+}
+train$MasVnr <- as.factor(train$MasVnr)
+```
+
+## Final version of my training data set:
+```{r}
+dim(train)
+colnames(train)
+head(train)
+```
+

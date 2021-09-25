@@ -1,0 +1,118 @@
+---
+title: "Stats 101A - Final Project R Code"
+author: "Hao Ma"
+date: "Winter 2019"
+output: pdf_document
+---
+
+## Code for building the model only:
+```{r warning=FALSE}
+library(alr3)
+
+train <- read.csv("HTrainW19Final.csv")
+
+train$Age1 <- 2019 - train$YearBuilt
+train$Age2 <- 2019 - train$YearRemodAdd
+
+train$TotalBsmtSF[which(is.na(train$TotalBsmtSF))] <- 
+  median(na.omit(train$TotalBsmtSF[which(train$TotalBsmtSF != 0)]))
+
+summary(powerTransform(cbind(train$SalePrice, train$LotArea, train$GrLivArea)~1))
+
+tSalePrice <- log(train$SalePrice)
+tLotArea <- log(train$LotArea)
+tGrLivArea <- log(train$GrLivArea)
+
+N <- as.integer(train$Neighborhood)
+for(i in 1:nrow(train)){
+   if(N[i] %in% c(1,5,6,7,9,12,13,17,20,21)){
+     train$Ngroup[i] <- "Group 1"
+   }else if(N[i] %in% c(2,3,11,15)){
+     train$Ngroup[i] <- "Group 2"
+   }else if(N[i] %in% c(4,8,10,18,19,23)){
+     train$Ngroup[i] <- "Group 3"
+   }else{
+     train$Ngroup[i] <- "Group 4"
+   }
+}
+
+train$Ngroup <- as.factor(train$Ngroup)
+
+train$GarageCars <- as.factor(train$GarageCars)
+train$Fireplaces <- as.factor(train$Fireplaces)
+train$FullBath <- as.factor(train$FullBath)
+
+train$MasVnrArea[which(is.na(train$MasVnrArea))] <- 
+  median(na.omit(train$MasVnrArea[which(train$MasVnrArea != 0)])) 
+med.mas.vnr <- median(train$MasVnrArea[which(train$MasVnrArea != 0)])
+for(i in 1:nrow(train)){
+  if(train$MasVnrArea[i] == 0) {train$MasVnr[i] <- "No MasVnr"} 
+  if(train$MasVnrArea[i] != 0 & train$MasVnrArea[i] <= med.mas.vnr) {train$MasVnr[i] <- "Small MasVnr"} 
+  if(train$MasVnrArea[i] != 0 & train$MasVnrArea[i] > med.mas.vnr) {train$MasVnr[i] <- "Large MasVnr"}
+}
+train$MasVnr <- as.factor(train$MasVnr)
+
+
+# the model:
+model3 <- lm(tSalePrice ~ MasVnr:tLotArea + MasVnr:OverallQual + MasVnr:TotalBsmtSF + MasVnr:Age1 + 
+               MasVnr:Age2 + MasVnr:tGrLivArea + FullBath + MasVnr:TotRmsAbvGrd + Fireplaces + 
+               MasVnr:Ngroup + Foundation + MasVnr:GarageCars, data = train)
+summary(model3)
+par(mfrow=c(2,2))
+plot(model3)
+
+model3_check <- lm(tSalePrice ~ tLotArea + OverallQual + TotalBsmtSF + Age1 + Age2 + tGrLivArea + 
+                     FullBath + TotRmsAbvGrd + Fireplaces + Ngroup + Foundation + GarageCars + 
+                     MasVnr, data = train)
+vif(model3_check)
+```
+
+
+## Code for predicting house price in testing data set:
+```{r}
+test <- read.csv("HTestW19Final No Y values.csv")
+
+test$Age1 <- 2019 - test$YearBuilt
+test$Age2 <- 2019 - test$YearRemodAdd
+
+test$TotalBsmtSF[which(is.na(test$TotalBsmtSF))] <- 
+  median(na.omit(test$TotalBsmtSF[which(test$TotalBsmtSF != 0)]))
+
+tLotArea <- log(test$LotArea)
+tGrLivArea <- log(test$GrLivArea)
+
+test$GarageCars <- as.factor(test$GarageCars)
+test$Fireplaces <- as.factor(test$Fireplaces)
+test$FullBath <- as.factor(test$FullBath)
+
+test$MasVnrArea[which(is.na(test$MasVnrArea))] <- 
+  median(na.omit(test$MasVnrArea[which(test$MasVnrArea != 0)]))
+med.mas.vnr <- median(test$MasVnrArea[which(test$MasVnrArea != 0)])
+for(i in 1:nrow(test)){
+  if(test$MasVnrArea[i] == 0) {test$MasVnr[i] <- "No MasVnr"} 
+  if(test$MasVnrArea[i] != 0 & test$MasVnrArea[i] <= med.mas.vnr) {test$MasVnr[i] <- "Small MasVnr"} 
+  if(test$MasVnrArea[i] != 0 & test$MasVnrArea[i] > med.mas.vnr) {test$MasVnr[i] <- "Large MasVnr"}
+}
+test$MasVnr <- as.factor(test$MasVnr)
+
+Ntest <- as.integer(test$Neighborhood)
+for(i in 1:nrow(test)){
+   if(Ntest[i] %in% c(1,5,6,7,9,12,13,17,20,21)){
+     test$Ngroup[i] <- "Group 1"
+   }else if(Ntest[i] %in% c(2,3,11,15)){
+     test$Ngroup[i] <- "Group 2"
+   }else if(Ntest[i] %in% c(4,8,10,18,19,23)){
+     test$Ngroup[i] <- "Group 3"
+   }else{
+     test$Ngroup[i] <- "Group 4"
+   }
+}
+test$Ngroup <- as.factor(test$Ngroup)
+
+p <- predict(model3, newdata = test)
+p[is.na(p)] <- median(na.omit(p)) 
+price <- exp(p)
+my_prediction <- data.frame(Ob = 1:1500, SalePrice = round(price,2))
+
+write.csv(my_prediction, "SalePrice_Hao_Ma_Lec1.csv")
+```
